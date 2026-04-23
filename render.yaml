@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: ferry-pont
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/index.cjs
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NODE_ENV
+        value: production
+    healthCheckPath: /api/ferry/pontsteiger
