@@ -39,20 +39,26 @@ npm start
 
 ## Deploy
 
-### Option A — Render.com (one click, free tier)
+### Option A — Render.com (recommended, free, one click)
 
-1. Click **New → Blueprint** on [Render](https://render.com).
-2. Connect this repo. Render will detect [`render.yaml`](./render.yaml) and set everything up.
-3. Done. Your app is live at `https://<service-name>.onrender.com`.
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/bootsandcats/ferry-pont)
 
-### Option B — Fly.io
+Click the button, sign in with GitHub, approve the blueprint. Done. Your app is live at `https://ferry-pont.onrender.com` (or similar).
+
+Render's free tier sleeps services after 15 min idle (~30s cold start on first visit, then snappy).
+
+### Option B — Railway.app (no sleep on free trial)
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https://github.com/bootsandcats/ferry-pont)
+
+### Option C — Fly.io
 
 ```bash
-fly launch            # accepts defaults; a fly.toml is included
+fly launch            # accepts defaults; fly.toml is included
 fly deploy
 ```
 
-### Option C — Any Docker host
+### Option D — Any Docker host
 
 ```bash
 docker build -t ferry-pont .
