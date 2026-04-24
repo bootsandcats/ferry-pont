@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { ArrowRightLeft, RefreshCw, Ship, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import sleepyCat from "@/assets/sleepy-cat.webp";
+import sleepyCat from "@/assets/sleepy-cat.jpg";
 
 type Direction = "pontsteiger" | "ndsm";
 
@@ -101,8 +101,8 @@ function WakingUpScreen({
     <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
       <img
         src={sleepyCat}
-        alt="A sleepy tabby cat curled up on a navy pillow"
-        className="w-56 h-56 sm:w-64 sm:h-64 rounded-3xl shadow-xl"
+        alt="A round-faced cat with wide green eyes, captioned 'heavy breathing'"
+        className="w-56 h-56 sm:w-64 sm:h-64 rounded-3xl shadow-xl object-cover"
         data-testid="img-sleepy-cat"
       />
       <h2 className="mt-6 text-2xl font-semibold tracking-tight">
