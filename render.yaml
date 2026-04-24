@@ -4,11 +4,14 @@ services:
     runtime: node
     plan: free
     region: frankfurt
-    buildCommand: npm ci && npm run build
+    # NOTE: we install devDependencies too — `tsx`, `vite`, `esbuild`, and
+    # `tailwindcss` are devDeps and are required for `npm run build`.
+    # Render sets NODE_ENV=production at runtime automatically.
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: node dist/index.cjs
     envVars:
       - key: NODE_VERSION
         value: "20"
-      - key: NODE_ENV
-        value: production
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
     healthCheckPath: /api/ferry/pontsteiger
