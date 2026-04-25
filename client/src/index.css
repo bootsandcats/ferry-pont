@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Standalone PWA: respect notch / home-indicator without leaving black bars */
+html,
+body {
+  background-color: hsl(200 40% 97%);
+}
+.dark html,
+.dark body,
+html.dark,
+html.dark body {
+  background-color: hsl(210 45% 8%);
+}
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
 /* LIGHT MODE */
 :root {
   --button-outline: rgba(0, 0, 0, 0.1);
