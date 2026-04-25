@@ -4,7 +4,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { ArrowRightLeft, RefreshCw, Ship, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import sleepyCat from "@/assets/sleepy-cat.jpg";
 
 type Direction = "pontsteiger" | "ndsm";
 
@@ -35,28 +34,8 @@ const amsterdamClock = new Intl.DateTimeFormat("nl-NL", {
   hour12: false,
 });
 
-const amsterdamHourFmt = new Intl.DateTimeFormat("en-US", {
-  timeZone: "Europe/Amsterdam",
-  hour: "2-digit",
-  hour12: false,
-});
-
 function fmtClock(iso: string): string {
   return amsterdamClock.format(new Date(iso));
-}
-
-function currentAmsterdamHour(): number {
-  // Returns the current hour in Europe/Amsterdam (0-23)
-  const parts = amsterdamHourFmt.formatToParts(new Date());
-  const h = parts.find((p) => p.type === "hour")?.value ?? "0";
-  return parseInt(h, 10);
-}
-
-function isKeepAliveWindow(): boolean {
-  // Keep-alive ping runs 08:00–20:00 Amsterdam time.
-  // Outside that window the Render free tier will cold-start (~30s).
-  const h = currentAmsterdamHour();
-  return h >= 8 && h < 20;
 }
 
 function fmtCountdown(ms: number): { big: string; unit: string } {
@@ -71,64 +50,6 @@ function fmtCountdown(ms: number): { big: string; unit: string } {
   }
   if (min === 0) return { big: `${sec}`, unit: "sec" };
   return { big: `${min}:${String(sec).padStart(2, "0")}`, unit: "min" };
-}
-
-// How long the first request is taking (ms) — used to decide whether
-// we should show the "waking up" cat screen while the backend cold-starts.
-function useRequestElapsed(isFetching: boolean, hasData: boolean): number {
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
-    if (!isFetching || hasData) {
-      setElapsed(0);
-      return;
-    }
-    const started = Date.now();
-    const t = setInterval(() => setElapsed(Date.now() - started), 250);
-    return () => clearInterval(t);
-  }, [isFetching, hasData]);
-  return elapsed;
-}
-
-function WakingUpScreen({
-  outsideKeepAlive,
-  elapsedMs,
-}: {
-  outsideKeepAlive: boolean;
-  elapsedMs: number;
-}) {
-  const secs = Math.floor(elapsedMs / 1000);
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-      <img
-        src={sleepyCat}
-        alt="A round-faced cat with wide green eyes, captioned 'heavy breathing'"
-        className="w-56 h-56 sm:w-64 sm:h-64 rounded-3xl shadow-xl object-cover"
-        data-testid="img-sleepy-cat"
-      />
-      <h2 className="mt-6 text-2xl font-semibold tracking-tight">
-        Waking up the ferry…
-      </h2>
-      <p className="mt-2 text-sm text-muted-foreground max-w-xs leading-relaxed">
-        {outsideKeepAlive ? (
-          <>
-            Outside peak hours (08:00–20:00) the server takes a little nap to
-            save energy. Give it about{" "}
-            <span className="font-semibold text-foreground">30 seconds</span>{" "}
-            to wake up.
-          </>
-        ) : (
-          <>
-            Just fetching the latest ferry times. This should only take a
-            moment.
-          </>
-        )}
-      </p>
-      <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground">
-        <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-        <span className="tabular-nums">{secs}s</span>
-      </div>
-    </div>
-  );
 }
 
 export default function Home() {
@@ -151,19 +72,7 @@ export default function Home() {
       },
       refetchInterval: 30_000,
       refetchOnWindowFocus: true,
-      // Give cold-starting backends lots of time before giving up
-      retry: 2,
-      retryDelay: 2000,
     });
-
-  const outsideKeepAlive = !isKeepAliveWindow();
-  const elapsed = useRequestElapsed(isFetching, !!data);
-  // Show the cat screen on the very first load if:
-  //   - we don't yet have data, AND
-  //   - we're outside the keep-alive window (the likely cold-start case), OR
-  //   - the request has already been in-flight for 1.5s+ (unusually slow)
-  const showWakingUp =
-    !data && (isLoading || isFetching) && (outsideKeepAlive || elapsed > 1500);
 
   const upcoming = useMemo(() => {
     if (!data?.departures) return [];
@@ -198,201 +107,193 @@ export default function Home() {
             </div>
           </div>
         </div>
-        {!showWakingUp && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            aria-label="Refresh"
-            data-testid="button-refresh"
-            className="h-9 w-9"
-          >
-            <RefreshCw
-              className={cn("h-4 w-4", isFetching && "animate-spin")}
-              strokeWidth={2.25}
-            />
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          aria-label="Refresh"
+          data-testid="button-refresh"
+          className="h-9 w-9"
+        >
+          <RefreshCw
+            className={cn("h-4 w-4", isFetching && "animate-spin")}
+            strokeWidth={2.25}
+          />
+        </Button>
       </header>
 
-      {showWakingUp ? (
-        <WakingUpScreen outsideKeepAlive={outsideKeepAlive} elapsedMs={elapsed} />
-      ) : (
-        <>
-          {/* Direction selector */}
-          <div className="px-5 mt-3">
-            <button
-              onClick={swap}
-              data-testid="button-swap-direction"
-              className="group w-full rounded-2xl bg-card border border-card-border px-4 py-3 flex items-center justify-between hover-elevate active-elevate-2"
-            >
-              <div className="text-left">
-                <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                  From
-                </div>
-                <div className="text-base font-semibold leading-tight">
-                  {label.from}
-                </div>
-              </div>
-              <div className="h-9 w-9 rounded-full bg-accent/15 text-accent-foreground flex items-center justify-center border border-accent/30">
-                <ArrowRightLeft className="h-4 w-4" strokeWidth={2.25} />
-              </div>
-              <div className="text-right">
-                <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                  To
-                </div>
-                <div className="text-base font-semibold leading-tight">
-                  {label.to}
-                </div>
-              </div>
-            </button>
+      {/* Direction selector */}
+      <div className="px-5 mt-3">
+        <button
+          onClick={swap}
+          data-testid="button-swap-direction"
+          className="group w-full rounded-2xl bg-card border border-card-border px-4 py-3 flex items-center justify-between hover-elevate active-elevate-2"
+        >
+          <div className="text-left">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              From
+            </div>
+            <div className="text-base font-semibold leading-tight">
+              {label.from}
+            </div>
           </div>
+          <div className="h-9 w-9 rounded-full bg-accent/15 text-accent-foreground flex items-center justify-center border border-accent/30">
+            <ArrowRightLeft className="h-4 w-4" strokeWidth={2.25} />
+          </div>
+          <div className="text-right">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              To
+            </div>
+            <div className="text-base font-semibold leading-tight">
+              {label.to}
+            </div>
+          </div>
+        </button>
+      </div>
 
-          {/* Countdown */}
-          <main className="flex-1 px-5 mt-5 flex flex-col">
-            <div className="rounded-3xl bg-gradient-to-b from-primary/12 to-primary/3 border border-primary/20 p-6 text-center relative overflow-hidden">
-              {/* Subtle water shimmer */}
-              <div
-                aria-hidden
-                className="absolute inset-0 opacity-[0.06] pointer-events-none"
-                style={{
-                  backgroundImage:
-                    "radial-gradient(circle at 20% 20%, hsl(var(--primary)) 0, transparent 45%), radial-gradient(circle at 80% 80%, hsl(var(--accent)) 0, transparent 40%)",
-                }}
-              />
+      {/* Countdown */}
+      <main className="flex-1 px-5 mt-5 flex flex-col">
+        <div className="rounded-3xl bg-gradient-to-b from-primary/12 to-primary/3 border border-primary/20 p-6 text-center relative overflow-hidden">
+          {/* Subtle water shimmer */}
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-[0.06] pointer-events-none"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 20% 20%, hsl(var(--primary)) 0, transparent 45%), radial-gradient(circle at 80% 80%, hsl(var(--accent)) 0, transparent 40%)",
+            }}
+          />
 
-              <div className="relative">
-                <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Next departure
+          <div className="relative">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              Next departure
+            </div>
+
+            {isLoading && !data ? (
+              <div className="mt-5 mb-2">
+                <div className="mx-auto h-14 w-40 rounded-xl bg-muted animate-pulse" />
+                <div className="mx-auto mt-4 h-4 w-28 rounded bg-muted animate-pulse" />
+              </div>
+            ) : isError ? (
+              <div className="mt-6 flex flex-col items-center gap-2 text-destructive">
+                <AlertCircle className="h-6 w-6" />
+                <div className="text-sm font-medium">
+                  Couldn't reach live data
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => refetch()}
+                  data-testid="button-retry"
+                >
+                  Try again
+                </Button>
+              </div>
+            ) : !next ? (
+              <div className="mt-6">
+                <div className="text-3xl font-semibold">
+                  No more boats
+                </div>
+                <div className="text-sm text-muted-foreground mt-1">
+                  The F7 has stopped for today. First ferries are around
+                  06:40 (weekdays) / 09:00 (weekends).
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3">
+                <div
+                  className="font-semibold tracking-tight tabular-nums leading-none"
+                  style={{ fontSize: "clamp(56px, 22vw, 112px)" }}
+                  data-testid="text-countdown"
+                >
+                  {countdown?.big}
+                </div>
+                {countdown?.unit && (
+                  <div className="text-sm uppercase tracking-[0.18em] text-muted-foreground mt-1">
+                    {countdown.unit}
+                  </div>
+                )}
+
+                <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-background/60 border border-border px-3 py-1.5">
+                  <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Leaves at
+                  </span>
+                  <span
+                    className="font-mono font-semibold"
+                    data-testid="text-next-time"
+                  >
+                    {fmtClock(next.expected)}
+                  </span>
+                  {next.delayMinutes > 0 && (
+                    <span
+                      className="text-[11px] font-medium text-destructive"
+                      data-testid="text-delay"
+                    >
+                      +{next.delayMinutes}m
+                    </span>
+                  )}
                 </div>
 
-                {isLoading && !data ? (
-                  <div className="mt-5 mb-2">
-                    <div className="mx-auto h-14 w-40 rounded-xl bg-muted animate-pulse" />
-                    <div className="mx-auto mt-4 h-4 w-28 rounded bg-muted animate-pulse" />
-                  </div>
-                ) : isError ? (
-                  <div className="mt-6 flex flex-col items-center gap-2 text-destructive">
-                    <AlertCircle className="h-6 w-6" />
-                    <div className="text-sm font-medium">
-                      Couldn't reach live data
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => refetch()}
-                      data-testid="button-retry"
-                    >
-                      Try again
-                    </Button>
-                  </div>
-                ) : !next ? (
-                  <div className="mt-6">
-                    <div className="text-3xl font-semibold">
-                      No more boats
-                    </div>
-                    <div className="text-sm text-muted-foreground mt-1">
-                      The F7 has stopped for today. First ferries are around
-                      06:40 (weekdays) / 09:00 (weekends).
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-3">
-                    <div
-                      className="font-semibold tracking-tight tabular-nums leading-none"
-                      style={{ fontSize: "clamp(56px, 22vw, 112px)" }}
-                      data-testid="text-countdown"
-                    >
-                      {countdown?.big}
-                    </div>
-                    {countdown?.unit && (
-                      <div className="text-sm uppercase tracking-[0.18em] text-muted-foreground mt-1">
-                        {countdown.unit}
-                      </div>
-                    )}
+                <div className="mt-3 text-xs text-muted-foreground">
+                  {label.from} → {label.to}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
-                    <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-background/60 border border-border px-3 py-1.5">
-                      <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                        Leaves at
-                      </span>
-                      <span
-                        className="font-mono font-semibold"
-                        data-testid="text-next-time"
-                      >
-                        {fmtClock(next.expected)}
-                      </span>
-                      {next.delayMinutes > 0 && (
-                        <span
-                          className="text-[11px] font-medium text-destructive"
-                          data-testid="text-delay"
-                        >
-                          +{next.delayMinutes}m
+        {/* Upcoming list */}
+        {after.length > 0 && (
+          <section className="mt-6">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground px-1 mb-2">
+              After that
+            </div>
+            <ul
+              className="rounded-2xl bg-card border border-card-border divide-y divide-border overflow-hidden"
+              data-testid="list-upcoming"
+            >
+              {after.map((d, i) => {
+                const diffMin = Math.max(
+                  0,
+                  Math.round(
+                    (new Date(d.expected).getTime() - now) / 60000
+                  )
+                );
+                return (
+                  <li
+                    key={`${d.expected}-${i}`}
+                    className="flex items-center justify-between px-4 py-3"
+                    data-testid={`row-departure-${i}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-7 w-7 rounded-md bg-muted text-muted-foreground flex items-center justify-center text-[11px] font-semibold">
+                        F7
+                      </div>
+                      <div className="font-mono font-semibold tabular-nums text-base">
+                        {fmtClock(d.expected)}
+                      </div>
+                      {d.delayMinutes > 0 && (
+                        <span className="text-[11px] font-medium text-destructive">
+                          +{d.delayMinutes}m
                         </span>
                       )}
                     </div>
-
-                    <div className="mt-3 text-xs text-muted-foreground">
-                      {label.from} → {label.to}
+                    <div className="text-sm text-muted-foreground tabular-nums">
+                      in {diffMin} min
                     </div>
-                  </div>
-                )}
-              </div>
-            </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
 
-            {/* Upcoming list */}
-            {after.length > 0 && (
-              <section className="mt-6">
-                <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground px-1 mb-2">
-                  After that
-                </div>
-                <ul
-                  className="rounded-2xl bg-card border border-card-border divide-y divide-border overflow-hidden"
-                  data-testid="list-upcoming"
-                >
-                  {after.map((d, i) => {
-                    const diffMin = Math.max(
-                      0,
-                      Math.round(
-                        (new Date(d.expected).getTime() - now) / 60000
-                      )
-                    );
-                    return (
-                      <li
-                        key={`${d.expected}-${i}`}
-                        className="flex items-center justify-between px-4 py-3"
-                        data-testid={`row-departure-${i}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="h-7 w-7 rounded-md bg-muted text-muted-foreground flex items-center justify-center text-[11px] font-semibold">
-                            F7
-                          </div>
-                          <div className="font-mono font-semibold tabular-nums text-base">
-                            {fmtClock(d.expected)}
-                          </div>
-                          {d.delayMinutes > 0 && (
-                            <span className="text-[11px] font-medium text-destructive">
-                              +{d.delayMinutes}m
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm text-muted-foreground tabular-nums">
-                          in {diffMin} min
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            )}
-
-            <div className="mt-auto pt-6 pb-4 text-center text-[11px] text-muted-foreground">
-              {data?.fetchedAt && <>Updated {fmtClock(data.fetchedAt)} · </>}
-              Data: GVB realtime via OVapi · Free ferry
-            </div>
-          </main>
-        </>
-      )}
+        <div className="mt-auto pt-6 pb-4 text-center text-[11px] text-muted-foreground">
+          {data?.fetchedAt && <>Updated {fmtClock(data.fetchedAt)} · </>}
+          Data: GVB realtime via OVapi · Free ferry
+        </div>
+      </main>
     </div>
   );
 }
